@@ -33,3 +33,30 @@ MATCH (m:Movie) RETURN m LIMIT 25
 SHOW INDEXES
 
 // ***************************************************************
+
+// CREATING RELATIONSHIPS:
+
+// Check ACTED_IN relationship - find the actors in the movie "Toy Story":
+MATCH (p:Person)-[r:ACTED_IN]->(m:Movie)
+WHERE m.title = 'Toy Story'
+RETURN p,r,m
+
+// ***************************************************************
+
+// ADD DIRECTED RELATIONSHIP:
+
+// Test creation:
+MATCH (p:Person)-[d:DIRECTED]->(m:Movie)
+RETURN p,d,m
+LIMIT 25
+
+// ***************************************************************
+
+// ADD USER RATINGS:
+
+// Test creation:
+MATCH (u:User)-[r:RATED]->(m:Movie)
+RETURN u,r,m
+LIMIT 25
+
+// ***************************************************************
