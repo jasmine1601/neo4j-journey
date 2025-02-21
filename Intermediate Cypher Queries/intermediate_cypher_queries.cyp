@@ -82,6 +82,9 @@ MATCH (p:Person)
 WHERE p.name STARTS WITH 'Robert'
 RETURN p.name
 
+// What Cypher keyword can you use to determine if an index will be used for a query?
+// EXPLAIN
+
 // ***************************************************************
 
 // CASE INSENSITIVE SEARCH:
@@ -130,6 +133,9 @@ WHERE p.name = 'Clint Eastwood'
 AND NOT exists {(p)-[:DIRECTED]->(m)}
 RETURN m.title
 
+// What Cypher keyword helps you to understand the performance of a query when it runs?
+// PROFILE
+
 // Profile the query to see the performance of the query by adding PROFILE to the beginning of the query:
 PROFILE MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
 WHERE p.name = 'Clint Eastwood'
@@ -146,6 +152,9 @@ MATCH (p:Person)
 WHERE p.name STARTS WITH 'Tom'
 OPTIONAL MATCH (p)-[:DIRECTED]→(m:Movie)
 RETURN p.name, m.title
+
+// What value does OPTIONAL MATCH return if there is no value for a string property being returned in a row?
+// null
 
 // Retrieve Movies and Reviewers
 // Find all the movies in the Film-Noir genre and the users who rated them:
@@ -166,5 +175,163 @@ MATCH (m:Movie)-[:IN_GENRE]->(g:Genre)
 WHERE g.name = 'Film-Noir'
 OPTIONAL MATCH (m)<-[:RATED]-(u:User)
 RETURN m.title, u.name
+
+// ***************************************************************
+
+// Controlling Results Returned:
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// ORDERING RETURNED RESULTS:
+
+// Return the ratings that Sandy Jones gave movies and return the rating from highest to lowest:
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WHERE u.name = 'Sandy Jones'
+RETURN m.title AS movie, r.rating AS rating 
+ORDER BY r.rating DESC
+
+// What is the maximum number of properties can you order in your results?
+// Unlimited
+
+// ***************************************************************
+
+// ORDERING RESULTS:
+
+// Find and return movie titles ordered by the the imdbRating value.
+// 1. Return only movies that have a value for the imdbRating property.
+// 2. Order the results by the imdbRating value (highest to lowest).
+MATCH (m:Movie)
+WHERE m.imdbRating IS NOT NULL
+RETURN m.title
+ORDER BY m.imdbRating DESC
+
+// ***************************************************************
+
+// VIEWING THE ORDERED RESSULTS:
+
+// Returns the movie titles with the highest imdbRating values first:
+MATCH (m:Movie)
+WHERE m.imdbRating IS NOT NULL
+RETURN m.title, m.imdbRating
+ORDER BY m.imdbRating DESC
+
+// Return the movie titles with the lowest imdbRating values first:
+MATCH (m:Movie)
+WHERE m.imdbRating IS NOT NULL
+RETURN m.title, m.imdbRating
+ORDER BY m.imdbRating
+
+// ***************************************************************
+
+// ORDERING MULTIPLE VALUES:
+
+// Find the highest rates movies:
+MATCH (m:Movie)
+WHERE m.imdbRating IS NOT NULL
+RETURN m.title, m.imdbRating
+ORDER BY m.imdbRating DESC
+
+// Find the youngest actor in the highest rated movie:
+// 1. Match Movie to Person nodes using the ACTED_IN relationship
+// 2. Add the Person node’s name and born property to the RETURN clause
+// 3. Order the results by the Person node’s born property
+MATCH (m:Movie)<-[ACTED_IN]-(p:Person)
+WHERE m.imdbRating IS NOT NULL
+RETURN m.title, m.imdbRating, p.name, p.born
+ORDER BY m.imdbRating DESC, p.born DESC
+
+// ***************************************************************
+
+// LIMITING OR COUNTING RESULTS RETURNED:
+
+// Return the movies that have been reviewed:
+MATCH (m:Movie)<-[:RATED]-()
+RETURN DISTINCT m.title
+
+// Why would you want to use LIMIT in a RETURN clause?
+// To reduce the amount of data returned to the client.
+
+// Limiting results by movie rating:
+// Return just the lowest rated movie based on the imdbRating property:
+MATCH (m:Movie)
+WHERE m.imdbRating IS NOT NULL
+RETURN m.title, m.imdbRating
+ORDER BY m.imdbRating LIMIT 1
+
+// ***************************************************************
+
+// ELIMINATING DUPLICATES:
+
+// This query returns the names people who acted or directed the movie Toy Story 
+// and then retrieves all people who acted in the same movie.
+MATCH (p:Person)-[:ACTED_IN | DIRECTED]->(m)
+WHERE m.title = 'Toy Story'
+MATCH (p)-[:ACTED_IN]->()<-[:ACTED_IN]-(p2:Person)
+RETURN p.name, p2.name
+
+// Modify query to eliminate duplicates:
+MATCH (p:Person)-[:ACTED_IN | DIRECTED]->(m)
+WHERE m.title = 'Toy Story'
+MATCH (p)-[:ACTED_IN]->()<-[:ACTED_IN]-(p2:Person)
+RETURN DISTINCT p.name, p2.name
+
+// ***************************************************************
+
+// MAP PROJECTIONS TO RETURN DATA:
+
+// Return the title and release date as Movie objects for all Woody Allen movies:
+MATCH (m:Movie)<-[:DIRECTED]-(d:Director)
+WHERE d.name = 'Woody Allen'
+RETURN m {.title, .released} AS movie
+ORDER BY m.released
+
+// What is returned in every row?
+MATCH (p:Person)
+WHERE p.name CONTAINS "Thomas"
+RETURN p AS person ORDER BY p.name
+// - labels
+// - identity
+// - elementId
+// - properties
+
+// ***************************************************************
+
+//  CHANGING RESULTS RETURNED:
+
+// We want to return information about actors who acted in the Toy Story movies.
+// We want to return the age that an actor will turn this year or that the actor died.
+MATCH (m:Movie)<-[:ACTED_IN]-(p:Person)
+WHERE m.title CONTAINS 'Toy Story'
+RETURN m.title AS movie,
+p.name AS actor,
+p.born AS dob,
+CASE WHEN p.died IS NULL THEN date().year - p.born.year
+WHEN p.died IS NOT NULL THEN 'Died'
+END AS ageThisYear
+
+// What keywords can you use in a RETURN clause to conditionally return a value?
+CASE
+WHEN
+ELSE
+END
+
+// ***************************************************************
+
+// CONDITIONALLY RETURNING DATA:
+
+// Return the movies that Charlie Chaplin has acted in and the runtime for the movie:
+MATCH (m:Movie)<-[:ACTED_IN]-(p:Person)
+WHERE p.name = 'Charlie Chaplin'
+RETURN m.title AS movie,
+m.runtime AS runTime
+
+// Modify this query to return "Short" for runTime if the movie’s runtime is < 120 (minutes) 
+// and "Long" for runTime if the movie’s runtime is >= 120.
+MATCH (m:Movie)<-[:ACTED_IN]-(p:Person)
+WHERE p.name = 'Charlie Chaplin'
+RETURN m.title AS movie,
+CASE 
+    WHEN m.runtime < 120 THEN 'Short' 
+    ELSE 'Long' 
+END AS runTime
 
 // ***************************************************************
