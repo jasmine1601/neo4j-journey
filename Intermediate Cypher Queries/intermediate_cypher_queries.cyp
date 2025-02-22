@@ -414,3 +414,67 @@ MATCH (x:Test)
 RETURN duration.between(x.datetime1, x.datetime2).minutes
 
 // ***************************************************************
+
+// Graph Traversal:
+// ~~~~~~~~~~~~~~~
+
+// Return a list of names of reviewers who rated the movie, Toy Story. What query will perform best?
+
+MATCH (movie:Movie)←[:RATED]-(reviewer)
+WHERE movie.title = 'Toy Story'
+RETURN reviewer.name
+
+// What term best describes the traversal behavior during a query?
+// depth-first
+
+// ***************************************************************
+
+// TRAVERSING THE GRAPH:
+
+// Co-actors of Robert Blake:
+MATCH (p:Person {name: 'Robert Blake'})-[:ACTED_IN]->(m:Movie), (coActors:Person)-[:ACTED_IN]->(m)
+RETURN m.title, collect(coActors.name)
+
+// How many relationships are traversed to return the result?
+// 16
+
+// Finding more co-actors:
+MATCH (p:Person {name: 'Robert Blake'})-[:ACTED_IN]->(m:Movie)
+MATCH (allActors:Person)-[:ACTED_IN]->(m)
+RETURN m.title, collect(allActors.name)
+
+// How many relationships are traversed to return the result?
+// This query traverses a total of 20 ACTED_IN relationships.
+// It first traverses all ACTED_IN relationships from Robert Blake (4 traversals)
+// For each movie found, it traverses all ACTED_IN relationships to tbe movie. (16 traversals, including the traversal from Robert Blake)
+// You can see the nodes and relationships involved:
+MATCH (p:Person {name: 'Robert Blake'})-[:ACTED_IN]->(m:Movie)
+MATCH (allActors:Person)-[:ACTED_IN]->(m)
+RETURN p,m,allActors
+
+// ***************************************************************
+
+// VARYING LENGTH TRAVERSAL:
+
+// What actors are up to 6 hops away?
+// Return a list of actors that are up to 6 hops away from Tom Hanks:
+MATCH (p:Person)-[:ACTED_IN*1..6]-(others:Person)
+WHERE p.name = 'Tom Hanks'
+RETURN  others.name
+
+// Finding the shortest path between 2 nodes
+// shortestPath()
+
+// Return the names of actors that are 2 hops away from Robert Blake using the ACTED_IN relationship:
+MATCH (p:Person {name: 'Robert Blake'})-[:ACTED_IN*2]-(others:Person)
+RETURN others.name
+
+// Return the 'unique' names of actors that are 4 hops away from Robert Blake using the ACTED_IN relationship:
+MATCH (p:Person {name: 'Robert Blake'})-[:ACTED_IN*4]-(others:Person)
+RETURN DISTINCT others.name
+
+// Return the unique names of actors that are 'up to 4' hops away from Robert Blake using the ACTED_IN relationship:
+MATCH (p:Person {name: 'Robert Blake'})-[:ACTED_IN*1..4]-(others:Person)
+RETURN DISTINCT others.name
+
+// ***************************************************************
