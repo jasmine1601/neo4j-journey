@@ -478,3 +478,156 @@ MATCH (p:Person {name: 'Robert Blake'})-[:ACTED_IN*1..4]-(others:Person)
 RETURN DISTINCT others.name
 
 // ***************************************************************
+
+// Pipelining Queries:
+// ~~~~~~~~~~~~~~~~~~
+
+// SCOPING VARIABLES:
+
+// Return the name of the actor (Clint Eastwood) and all the movies that he acted in that contain the string 'high':
+WITH  'Clint Eastwood' AS a, 'high' AS t
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WITH p, m, toLower(m.title) AS movieTitle
+WHERE p.name = a
+AND movieTitle CONTAINS t
+RETURN p.name AS actor, m.title AS movie
+
+// Using WITH to scope variables
+// create a variable for the actor’s name:
+WITH 'Tom Hanks' AS theActor
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = theActor
+RETURN m.title AS title
+
+// Highest Revenue Movies:
+WITH  'Tom Hanks' AS theActor
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = theActor
+AND m.revenue IS NOT NULL
+WITH m ORDER BY m.revenue DESC LIMIT 1
+RETURN m.revenue AS revenue, m.title AS title
+
+// Top Movies
+// Using WITH for map projection
+// Return a map projection of the top 10 movies by IMDb rating:
+MATCH (n:Movie)
+WHERE n.imdbRating IS NOT NULL
+WITH n {
+  .title,
+  .imdbRating
+}
+ORDER BY n.imdbRating DESC
+LIMIT 10
+RETURN collect(n)
+
+// add the following properties to the map projection:
+// plot, released, countries
+MATCH (n:Movie)
+WHERE n.imdbRating IS NOT NULL
+WITH n {
+  .title,
+  .imdbRating,
+  .plot,
+  .released,
+  .countries
+}
+ORDER BY n.imdbRating DESC
+LIMIT 10
+RETURN collect(n)
+
+// Adding Genres
+// Add relationships to a map projection
+// Return the actors in the top 10 movies by IMDb rating:
+MATCH (n:Movie)
+WHERE n.imdbRating IS NOT NULL
+WITH n {
+  .title,
+  .imdbRating,
+  actors: [ (n)<-[:ACTED_IN]-(p) | p { .imdbId, .name } ]
+}
+ORDER BY n.imdbRating DESC
+LIMIT 10
+RETURN collect(n)
+
+// Modify this query to add the genres to the map projection.
+// You will need to use the IN_GENRE relationship and return the name property for each genre.
+MATCH (n:Movie)
+WHERE n.imdbRating IS NOT NULL
+WITH n {
+  .title,
+  .imdbRating,
+  actors: [ (n)<-[:ACTED_IN]-(p) | p { .imdbId, .name } ],
+  genres: [ (n)-[:IN_GENRE]->(g) | g {.name} ]
+}
+ORDER BY n.imdbRating DESC
+LIMIT 10
+RETURN collect(n)
+
+// ***************************************************************
+
+// PIPELINING QUERIES:
+
+// Limiting results
+// Return the names of Directors who directed movies that Keanu Reeves acted in, limit the number of rows returned to 3:
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = 'Keanu Reeves'
+WITH m LIMIT 3
+MATCH (d:Person)-[:DIRECTED]->(m)
+RETURN collect(d.name) AS directors,
+m.title AS movies
+
+// Highest Rated Tom Hanks Movie
+// Using WITH to pass on intermediate results
+// Determine the highest average rating for a Tom Hanks movie:
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)<-[r:RATED]-(:User)
+WHERE p.name = 'Tom Hanks'
+WITH m, avg(r.rating) AS avgRating
+WHERE avgRating > 4
+RETURN m.title AS Movie, avgRating AS `AverageRating`
+ORDER BY avgRating DESC
+
+// ***************************************************************
+
+// UNWINDING LISTS:
+
+// Return the title of a movie and language pair for any Tom Hanks movie that has exactly two languages associated with it. 
+// Each movie will have two rows, the title is repeated and then each language for that title. 
+// Create a lang value that is an element of the languages list:
+MATCH (m:Movie)-[:ACTED_IN]-(a:Actor)
+WHERE a.name = 'Tom Hanks'
+AND size(m.languages) = 2
+UNWIND m.languages as lang
+RETURN m.title AS movie,lang AS languages
+
+// What type of data can UNWIND be used for?
+// - List of strings
+// - List of numerics
+
+// UK Movies
+// Using UNWIND pass on intermediate results
+// Find the number of movies containing each language:
+MATCH (m:Movie)
+UNWIND m.languages AS lang
+WITH m, trim(lang) AS language
+WITH language, collect(m.title) AS movies
+RETURN language, size(movies)
+
+// How many movies released in the UK are in the graph?
+// here trimmedCountry is distinct because it's a grouping key
+MATCH (m:Movie)
+UNWIND m.countries AS country
+WITH m, trim(country) AS trimmedCountry
+WITH trimmedCountry, collect(m.title) AS movies
+RETURN trimmedCountry, size(movies)
+
+// Switzerland Movies
+// Using UNWIND pass on intermediate results
+// Filter the movies produced in Switzerland:
+MATCH (m:Movie)
+UNWIND m.countries AS country
+WITH m, trim(country) AS trimmedCountry
+WHERE trimmedCountry = 'Switzerland'
+WITH trimmedCountry, collect(m.title) AS movies
+RETURN trimmedCountry, size(movies)
+
+// ***************************************************************
