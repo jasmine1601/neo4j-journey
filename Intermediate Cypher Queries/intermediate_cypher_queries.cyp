@@ -631,3 +631,136 @@ WITH trimmedCountry, collect(m.title) AS movies
 RETURN trimmedCountry, size(movies)
 
 // ***************************************************************
+
+// REDUCING MEMORY:
+
+// Using a subquery
+// Here is a query that has a subquery. The enclosing query finds all User nodes. 
+// The subquery finds all movies that this user rated with 5 and return them.
+MATCH (u:User)
+CALL {
+  with u
+  MATCH (m:Movie)<-[r:RATED]-(u)
+     WHERE r.rating = 5
+    RETURN m
+}
+RETURN m.title, count(m) AS numReviews
+ORDER BY numReviews DESC
+
+// Using Subqueries
+// Add a subquery
+// Top Genres
+// Find the number of movies in each genre that have a imdbRating greater than 9:
+MATCH (g:Genre)
+CALL { 
+    WITH g
+    MATCH (g)<-[:IN_GENRE]-(m) WHERE m.imdbRating > 9
+    RETURN count(m) AS numMovies
+}
+RETURN g.name AS Genre, numMovies 
+ORDER BY numMovies DESC
+
+// Combining Results
+// Combining actors and directors data
+// Actors and Directors from 2015
+MATCH (m:Movie)<-[:ACTED_IN]-(p:Person)
+WHERE m.year = 2015
+RETURN "Actor" AS type,
+p.name AS workedAs,
+collect(m.title) AS movies
+UNION ALL
+MATCH (m:Movie)<-[:DIRECTED]-(p:Person)
+WHERE m.year = 2015
+RETURN "Director" AS type,
+p.name AS workedAs,
+collect(m.title) AS movies
+
+// ***************************************************************
+
+// USING PARAMETERS:
+
+// Set the following parameters:
+:params {actorName: 'Tom Cruise', movieName: 'Top Gun', l:2}
+
+// Return the names of the actors in a particular movie that is parameterized. 
+// The number of results returned is also parameterized.
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE m.title = $movieName
+RETURN p.name
+LIMIT $l
+
+// What command in Neo4j Browser returns all parameters set for the session?
+// : params
+
+// Setting Integers:
+// Which command would you use to ensure that the value of the myNumber parameter is cast as an integer?
+:param myNumber ⇒ 10
+
+// Given the following query which finds all users with a name beginning with the string value supplied in the $name parameter.
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name STARTS WITH $name
+RETURN p.name AS actor,
+m.title AS title
+
+// What commands would you run in Neo4j Browser to set the $name parameter to Tom?
+:param name: 'Tom'
+:params {name: 'Tom'}
+
+// Using Parameters
+// 1. Set Parameters:
+:param name => 'Tom';
+:param country => 'UK';
+
+// 2. Run the query:
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name STARTS WITH $name
+AND $country IN m.countries
+RETURN p.name AS actor,
+m.title AS title
+
+// ***************************************************************
+
+// APPLICATION EXAMPLES USING PARAMETERS:
+
+// Example: Java
+// In this example, the parameters are passed to the second argument of the tx.run method 
+// using the static parameters function provided by the org.neo4j.driver.Values class.
+try (var session = driver.session()) {
+  Result res = session.readTransaction(tx -> tx.run("""
+    MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+    WHERE m.title = $title
+    RETURN p
+    LIMIT 10
+  """, Values.parameters("title", "Toy Story")));
+}
+
+// Example: JavaScript
+// In this example, the parameters are passed to the second argument of the tx.run method as a JavaScript object.
+const session = driver.session()
+const res = await session.readTransaction(tx =>
+  tx.run(`
+    MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+    WHERE m.title = $title
+    RETURN p
+    LIMIT 10
+  `,
+  { title: 'Toy Story'})
+)
+
+// Example: Python
+// In Python, Cypher parameters are passed as named parameters to the tx.run method. 
+// In this example, title has been passed as a named parameter.
+def get_actors(tx, movieTitle): # (1)
+  result = tx.run("""
+    MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+    WHERE m.title = $title
+    RETURN p
+  """, title=movieTitle)
+
+  # Access the `p` value from each record
+  return [ record["p"] for record in result ]
+
+with driver.session() as session:
+    result = session.read_transaction(get_actors, movieTitle="Toy Story")
+
+// ***************************************************************
