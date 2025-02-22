@@ -335,3 +335,82 @@ CASE
 END AS runTime
 
 // ***************************************************************
+
+// Working with Cypher Data:
+// ~~~~~~~~~~~~~~~~~~~~~~~~
+
+// Return the list of names of actors in the movie Toy Story as a single row. What code do you use?
+MATCH (movie:Movie {title:'Toy Story'})<-[:ACTED_IN]-(actor:Person)
+RETURN collect(actor.name) AS actors
+
+// What Cypher function can you use to return the number of elements in a list of Movie nodes, movies?
+// size(movies)
+
+// ***************************************************************
+
+// COUNTING RESULTS:
+
+// Most active director?
+// Find the highest number of movies directed by a single director:
+MATCH (p:Person)-[:DIRECTED]->(m:Movie)
+RETURN p.name, count(m.title)
+ORDER BY count(m.title) DESC
+
+// ***************************************************************
+
+// CREATING LISTS:
+
+// Actors by movie title
+// Return a list actors who have appeared in movies with the same title.
+// 1. Return the actors as a list.
+// 2. Order the results by the size of the actors list.
+MATCH (a:Actor)-[:ACTED_IN]->(m:Movie)
+RETURN 
+    m.title AS movie,
+    COLLECT(a.name) AS actors
+ORDER BY SIZE(actors) DESC
+LIMIT 100
+
+// How Many Actors?
+// Update the above query to return the number of actors in movies with the same title:
+MATCH (a:Actor)-[:ACTED_IN]->(m:Movie)
+RETURN m.title AS movie,
+collect(a.name) AS cast,
+size(collect(a.name)) AS num
+ORDER BY num DESC LIMIT 1
+
+// ***************************************************************
+
+// WORKING WITH DATES AND TIMES:
+
+// How old Charlie Chaplin was when he died:
+MATCH (p:Person)
+WHERE p.name = 'Charlie Chaplin'
+RETURN duration.between(p.born, p.died).years
+
+// Duration
+// The Test node has been updated using this Cypher statement:
+MERGE (x:Test {id: 1})
+SET
+x.date = date(),
+x.datetime = datetime(),
+x.timestamp = timestamp(),
+x.date1 = date('2022-04-08'),
+x.date2 = date('2022-09-20'),
+x.datetime1 = datetime('2022-02-02T15:25:33'),
+x.datetime2 = datetime('2022-02-02T22:06:12')
+RETURN x
+
+// Calculate days between two dates
+// Update above query to calculate the number of days between the date1 and date2 properties of the Test node.
+// The difference between the two dates is the duration in days.
+MATCH (x:Test)
+RETURN duration.inDays(x.date1, x.date2).days
+
+// Calculate minutes between two datetime values
+// Update above query to calculate the number of minutes between the datetime and datetime2 properties of the Test node.
+// The difference between the two dates is the number of minutes.
+MATCH (x:Test)
+RETURN duration.between(x.datetime1, x.datetime2).minutes
+
+// ***************************************************************
